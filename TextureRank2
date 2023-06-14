@@ -1,0 +1,91 @@
+from numpy import sin, cos, pi, exp
+from scipy import integrate
+
+def ObtenerTensor(nombre_archivo):
+    archivo = open(nombre_archivo, 'r')
+    tensor = []
+    for fila in archivo:
+        fila = fila[:-1] #elimina el carácter de salto
+        fila1, fila2, fila3 = fila.split(',')
+        tensor.append([float(fila1), float(fila2), float(fila3)])
+        print(fila)
+    archivo.close()
+    return tensor
+
+def IntegralSurf(omega):
+    funcion = lambda y, x: exp(-(180*x/(pi*omega))**2)*sin(x)
+    sumaR = integrate.dblquad(funcion, 0, pi, 0, 2*pi)
+    return sumaR[0]
+
+def f(phi, beta, i, j, m, n, omega, tensor, su):
+    Q = [[0 for l in range(3)] for m in range(3)]
+    R = (1/su)*exp(-(180*phi/(pi*omega))**2)*sin(phi)
+    phi1 = 0
+    phi2 = pi/2 - beta
+    Q[0][0] =  cos(phi2)*cos(phi1) - cos(phi)*sin(phi1)*sin(phi2)
+    Q[0][1] =  cos(phi2)*sin(phi1) + cos(phi)*cos(phi1)*sin(phi2)
+    Q[0][2] =  sin(phi2)*sin(phi)
+    Q[1][0] = -sin(phi2)*cos(phi1) - cos(phi)*sin(phi1)*cos(phi2)
+    Q[1][1] = -sin(phi2)*sin(phi1) + cos(phi)*cos(phi1)*cos(phi2)
+    Q[1][2] =  cos(phi2)*sin(phi)
+    Q[2][0] =  sin(phi) *sin(phi1)
+    Q[2][1] = -sin(phi) *cos(phi1)
+    Q[2][2] =  cos(phi)
+    return Q[i][m]*Q[j][n]*R*tensor[m][n]
+
+def DoubleIntegral(f,i,j,m,n,omega,tensor,su):
+    a = 0; b=pi; c=0; d=2*pi; nx=100; ny= 100
+    hx = (b - a)/nx
+    hy = (d - c)/ny
+    suma = f(a,c,i,j,m,n,omega,tensor,su) + f(b,c,i,j,m,n,omega,tensor,su) + f(a,d,i,j,m,n,omega,tensor,su) + f(b,d,i,j,m,n,omega,tensor,su)
+    for jj in range(1,ny):
+        increy = c + jj*hy
+        if jj%2==1:
+            suma += 4*f(a,increy,i,j,m,n,omega,tensor,su) + 4*f(b,increy,i,j,m,n,omega,tensor,su)
+            for ii in range(1,nx):
+                increx = a + ii*hx
+                if ii%2==1:
+                    suma += 4*4*f(increx,increy,i,j,m,n,omega,tensor,su)
+                else:
+                    suma += 4*2*f(increx,increy,i,j,m,n,omega,tensor,su)
+        else:
+            suma += 2*f(a,increy,i,j,m,n,omega,tensor,su) + 2*f(b,increy,i,j,m,n,omega,tensor,su)
+            for ii in range(1,nx):
+                increx = a + ii*hx
+                if ii%2==1:
+                    suma += 2*4*f(increx,increy,i,j,m,n,omega,tensor,su)
+                else:
+                    suma += 2*2*f(increx,increy,i,j,m,n,omega,tensor,su)
+    for ii in range(1,nx):
+        increx = a + ii*hx
+        if ii%2==1:
+            suma += 4*f(increx,c,i,j,m,n,omega,tensor,su) + 4*f(increx,d,i,j,m,n,omega,tensor,su)
+        else:
+            suma += 2*f(increx,c,i,j,m,n,omega,tensor,su) + 2*f(increx,d,i,j,m,n,omega,tensor,su)
+    resultado = (hx*hy/9)*suma
+    return resultado
+
+def main():
+    print('Constante dielectrica para texturas axiales')
+    nombre = input('Nombre del archivo: ')
+    tensor = ObtenerTensor(nombre)
+
+    omeg = float(input('Ingresa el valor Omega en grados: '))
+    su = IntegralSurf(omeg)
+
+    textensor = [[0 for i in range(3)] for i in range(3)]
+    for i in range(3):
+        for j in range(3):
+            for m in range(3):
+                for n in range(3):
+                    #Integracion de las componentes del tensor dielectrico policristalino texturizado
+                    if tensor[m][n] != 0.0:
+                        textensor[i][j] += DoubleIntegral(f, i, j, m, n, omeg, tensor, su)
+                    #Calculo de componentes de tensor dielectrico de cristal girado:
+    print('Tensor policristalino texturado')
+    for fila in textensor:
+        print(f'{fila[0]:.2f}\t{fila[1]:.2f}\t{fila[2]:.2f}')
+    print('Nos vemos')
+
+if __name__ == '__main__':
+    main()
